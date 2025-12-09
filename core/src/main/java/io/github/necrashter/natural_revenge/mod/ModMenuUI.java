@@ -9,6 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -18,26 +19,35 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.scenes.scene2d.utils.DragListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.TimeUtils;
 
 import io.github.necrashter.natural_revenge.Main;
 
 /**
  * Floating mod menu UI with a draggable button and toggleable menu panel.
+ * Fixed touch handling for Android - uses combined touch detection for both drag and tap.
  */
 public class ModMenuUI {
     private final Stage stage;
     private final Skin skin;
     private final ModConfig config;
 
-    private Table floatingButton;
+    private Image floatingButton;
     private Window menuWindow;
     private boolean menuVisible = false;
 
     // Textures for the floating button
     private Texture buttonTexture;
+
+    // Touch tracking for drag vs tap detection
+    private float touchStartX, touchStartY;
+    private float buttonStartX, buttonStartY;
+    private long touchStartTime;
+    private boolean isDragging = false;
+    private static final float DRAG_THRESHOLD = 10f;  // pixels before considered dragging
+    private static final long TAP_TIME_THRESHOLD = 300; // ms max for tap
 
     public ModMenuUI(Stage stage) {
         this.stage = stage;
@@ -50,60 +60,84 @@ public class ModMenuUI {
 
     private void createFloatingButton() {
         // Create a simple colored button texture
-        Pixmap pixmap = new Pixmap(64, 64, Pixmap.Format.RGBA8888);
+        Pixmap pixmap = new Pixmap(80, 80, Pixmap.Format.RGBA8888);
 
         // Draw outer circle (border)
-        pixmap.setColor(new Color(0.2f, 0.8f, 0.2f, 1f));
-        fillCircle(pixmap, 32, 32, 30);
+        pixmap.setColor(new Color(0.2f, 0.8f, 0.2f, 0.9f));
+        fillCircle(pixmap, 40, 40, 38);
 
         // Draw inner circle
-        pixmap.setColor(new Color(0.1f, 0.5f, 0.1f, 1f));
-        fillCircle(pixmap, 32, 32, 25);
+        pixmap.setColor(new Color(0.1f, 0.5f, 0.1f, 0.9f));
+        fillCircle(pixmap, 40, 40, 32);
 
         // Draw "M" letter for Mod
         pixmap.setColor(Color.WHITE);
-        // Simple M shape
-        pixmap.fillRectangle(16, 18, 4, 28);  // Left vertical
-        pixmap.fillRectangle(44, 18, 4, 28);  // Right vertical
-        pixmap.fillRectangle(20, 18, 6, 4);   // Left top diagonal
-        pixmap.fillRectangle(38, 18, 6, 4);   // Right top diagonal
-        pixmap.fillRectangle(28, 22, 8, 4);   // Middle
+        // Simple M shape - thicker lines for visibility
+        pixmap.fillRectangle(18, 20, 6, 40);  // Left vertical
+        pixmap.fillRectangle(56, 20, 6, 40);  // Right vertical
+        pixmap.fillRectangle(24, 20, 8, 6);   // Left top diagonal
+        pixmap.fillRectangle(48, 20, 8, 6);   // Right top diagonal
+        pixmap.fillRectangle(32, 26, 16, 6);  // Middle
 
         buttonTexture = new Texture(pixmap);
         pixmap.dispose();
 
-        // Create floating button container
-        floatingButton = new Table();
-        floatingButton.setBackground(new TextureRegionDrawable(new TextureRegion(buttonTexture)));
-        floatingButton.setSize(64, 64);
+        // Create floating button as Image (better touch handling than Table)
+        floatingButton = new Image(new TextureRegionDrawable(new TextureRegion(buttonTexture)));
+        floatingButton.setSize(80, 80);
         floatingButton.setPosition(20, Gdx.graphics.getHeight() / 2f);
+        floatingButton.setTouchable(Touchable.enabled);
 
-        // Make button draggable
-        floatingButton.addListener(new DragListener() {
-            private float startX, startY;
-
+        // Combined listener for both drag AND tap detection
+        floatingButton.addListener(new InputListener() {
             @Override
-            public void dragStart(InputEvent event, float x, float y, int pointer) {
-                startX = floatingButton.getX();
-                startY = floatingButton.getY();
+            public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                // Store starting position and time
+                touchStartX = x;
+                touchStartY = y;
+                buttonStartX = floatingButton.getX();
+                buttonStartY = floatingButton.getY();
+                touchStartTime = TimeUtils.millis();
+                isDragging = false;
+                return true; // Must return true to receive touchDragged and touchUp
             }
 
             @Override
-            public void drag(InputEvent event, float x, float y, int pointer) {
-                floatingButton.moveBy(x - floatingButton.getWidth() / 2, y - floatingButton.getHeight() / 2);
+            public void touchDragged(InputEvent event, float x, float y, int pointer) {
+                float deltaX = x - touchStartX;
+                float deltaY = y - touchStartY;
 
-                // Clamp to screen bounds
-                float clampedX = Math.max(0, Math.min(floatingButton.getX(), stage.getWidth() - floatingButton.getWidth()));
-                float clampedY = Math.max(0, Math.min(floatingButton.getY(), stage.getHeight() - floatingButton.getHeight()));
-                floatingButton.setPosition(clampedX, clampedY);
+                // Check if we've moved enough to be considered dragging
+                if (Math.abs(deltaX) > DRAG_THRESHOLD || Math.abs(deltaY) > DRAG_THRESHOLD) {
+                    isDragging = true;
+                }
+
+                if (isDragging) {
+                    // Move the button
+                    float newX = buttonStartX + deltaX;
+                    float newY = buttonStartY + deltaY;
+
+                    // Clamp to screen bounds
+                    newX = Math.max(0, Math.min(newX, stage.getWidth() - floatingButton.getWidth()));
+                    newY = Math.max(0, Math.min(newY, stage.getHeight() - floatingButton.getHeight()));
+
+                    floatingButton.setPosition(newX, newY);
+                    buttonStartX = newX;
+                    buttonStartY = newY;
+                    touchStartX = x;
+                    touchStartY = y;
+                }
             }
-        });
 
-        // Click to toggle menu
-        floatingButton.addListener(new ClickListener() {
             @Override
-            public void clicked(InputEvent event, float x, float y) {
-                toggleMenu();
+            public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
+                long touchDuration = TimeUtils.millis() - touchStartTime;
+
+                // If it wasn't a drag and was quick enough, it's a tap - toggle menu
+                if (!isDragging && touchDuration < TAP_TIME_THRESHOLD) {
+                    toggleMenu();
+                }
+                isDragging = false;
             }
         });
 
@@ -122,27 +156,20 @@ public class ModMenuUI {
 
     private void createMenuWindow() {
         menuWindow = new Window("Mod Menu", skin);
-        menuWindow.setSize(300, 400);
-        menuWindow.setPosition(100, Gdx.graphics.getHeight() / 2f - 200);
+        menuWindow.setSize(320, 480);
+        menuWindow.setPosition(120, Gdx.graphics.getHeight() / 2f - 240);
         menuWindow.setMovable(true);
         menuWindow.setResizable(false);
-
-        // Make window draggable by title bar
-        menuWindow.getTitleTable().addListener(new DragListener() {
-            @Override
-            public void drag(InputEvent event, float x, float y, int pointer) {
-                menuWindow.moveBy(x - menuWindow.getWidth() / 2, y);
-            }
-        });
+        menuWindow.setKeepWithinStage(true);
 
         Table content = new Table();
-        content.pad(10);
-        content.defaults().left().padBottom(8);
+        content.pad(15);
+        content.defaults().left().padBottom(12);
 
         // Title
         Label titleLabel = new Label("-- CHEATS --", skin);
         titleLabel.setColor(Color.YELLOW);
-        content.add(titleLabel).center().colspan(1).padBottom(15).row();
+        content.add(titleLabel).center().colspan(1).padBottom(20).row();
 
         // Bunnyhop toggle
         content.add(createToggle("Bunnyhop", config.bunnyhop, new ChangeListener() {
@@ -192,6 +219,14 @@ public class ModMenuUI {
             }
         })).row();
 
+        // Silent Aimbot toggle
+        content.add(createToggle("Silent Aimbot", config.silentAimbot, new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                config.silentAimbot = ((CheckBox) actor).isChecked();
+            }
+        })).row();
+
         // Spacer
         content.add().expandY().row();
 
@@ -203,7 +238,7 @@ public class ModMenuUI {
                 hideMenu();
             }
         });
-        content.add(closeButton).center().padTop(10).row();
+        content.add(closeButton).center().padTop(15).width(120).height(50).row();
 
         menuWindow.add(content).expand().fill();
         menuWindow.setVisible(false);
@@ -215,6 +250,7 @@ public class ModMenuUI {
         checkBox.setChecked(initialState);
         checkBox.addListener(listener);
         checkBox.getLabel().setColor(Color.WHITE);
+        checkBox.left();
         return checkBox;
     }
 
@@ -229,19 +265,18 @@ public class ModMenuUI {
     public void showMenu() {
         menuVisible = true;
         menuWindow.setVisible(true);
-
-        // Update checkbox states from config
-        updateCheckboxStates();
+        menuWindow.toFront();
 
         // Position menu next to floating button
-        float menuX = floatingButton.getX() + floatingButton.getWidth() + 10;
+        float menuX = floatingButton.getX() + floatingButton.getWidth() + 15;
         float menuY = floatingButton.getY() + floatingButton.getHeight() / 2 - menuWindow.getHeight() / 2;
 
         // Clamp to screen
         if (menuX + menuWindow.getWidth() > stage.getWidth()) {
-            menuX = floatingButton.getX() - menuWindow.getWidth() - 10;
+            menuX = floatingButton.getX() - menuWindow.getWidth() - 15;
         }
-        menuY = Math.max(0, Math.min(menuY, stage.getHeight() - menuWindow.getHeight()));
+        if (menuX < 0) menuX = 10;
+        menuY = Math.max(10, Math.min(menuY, stage.getHeight() - menuWindow.getHeight() - 10));
 
         menuWindow.setPosition(menuX, menuY);
     }
@@ -249,10 +284,6 @@ public class ModMenuUI {
     public void hideMenu() {
         menuVisible = false;
         menuWindow.setVisible(false);
-    }
-
-    private void updateCheckboxStates() {
-        // This could be enhanced to sync UI with config state
     }
 
     public boolean isMenuVisible() {

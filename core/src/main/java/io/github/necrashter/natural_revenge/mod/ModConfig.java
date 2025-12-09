@@ -14,6 +14,7 @@ public class ModConfig {
     public boolean rapidFire = false;
     public boolean infiniteAmmo = false;
     public boolean oneHitKill = false;
+    public boolean silentAimbot = false;
 
     // Third person camera settings
     public float thirdPersonDistance = 5.0f;
@@ -47,5 +48,6 @@ public class ModConfig {
         rapidFire = false;
         infiniteAmmo = false;
         oneHitKill = false;
+        silentAimbot = false;
     }
 }

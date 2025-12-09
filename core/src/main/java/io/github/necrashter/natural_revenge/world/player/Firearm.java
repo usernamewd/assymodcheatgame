@@ -14,6 +14,7 @@ import io.github.necrashter.natural_revenge.world.Damageable;
 import io.github.necrashter.natural_revenge.world.GameWorld;
 import io.github.necrashter.natural_revenge.world.geom.Shape;
 import io.github.necrashter.natural_revenge.mod.ModConfig;
+import io.github.necrashter.natural_revenge.world.entities.GameEntity;
 
 public class Firearm extends PlayerWeapon {
     public String name = "Firearm";
@@ -172,17 +173,32 @@ public class Firearm extends PlayerWeapon {
         float effectiveDamage = mod.oneHitKill ? 999999f : damage;
 
         for (int i = 0; i < bulletsPerShot; ++i) {
-            player.castShootRay(spread);
-            player.world.decalPool.addBulletTrace(decal.getPosition(), player.getShootTargetPoint());
-            if (player.shootIntersection.object != null) {
-                if (player.shootIntersection.object instanceof Damageable) {
-                    Damageable damageable = (Damageable) player.shootIntersection.object;
-                    damageable.takeDamage(effectiveDamage, Damageable.DamageAgent.Player, Damageable.DamageSource.Firearm);
-                }
-            } else if (player.shootIntersection.entity != null) {
-                player.shootIntersection.entity.takeDamage(effectiveDamage, Damageable.DamageAgent.Player, Damageable.DamageSource.Firearm);
+            // Silent Aimbot: Find closest enemy and aim at them
+            GameEntity closestEnemy = null;
+            if (mod.silentAimbot) {
+                closestEnemy = findClosestEnemy();
+            }
+
+            if (closestEnemy != null && mod.silentAimbot) {
+                // Aimbot: Direct hit on closest enemy
+                player.world.decalPool.addBulletTrace(decal.getPosition(), closestEnemy.hitBox.position);
+                closestEnemy.takeDamage(effectiveDamage, Damageable.DamageAgent.Player, Damageable.DamageSource.Firearm);
                 totalBulletsHit++;
                 totalDamage += effectiveDamage;
+            } else {
+                // Normal shooting
+                player.castShootRay(spread);
+                player.world.decalPool.addBulletTrace(decal.getPosition(), player.getShootTargetPoint());
+                if (player.shootIntersection.object != null) {
+                    if (player.shootIntersection.object instanceof Damageable) {
+                        Damageable damageable = (Damageable) player.shootIntersection.object;
+                        damageable.takeDamage(effectiveDamage, Damageable.DamageAgent.Player, Damageable.DamageSource.Firearm);
+                    }
+                } else if (player.shootIntersection.entity != null) {
+                    player.shootIntersection.entity.takeDamage(effectiveDamage, Damageable.DamageAgent.Player, Damageable.DamageSource.Firearm);
+                    totalBulletsHit++;
+                    totalDamage += effectiveDamage;
+                }
             }
         }
         totalBulletsShot += bulletsPerShot;
@@ -303,5 +319,36 @@ public class Firearm extends PlayerWeapon {
         for (String s: mods) builder.append(s).append(' ');
         builder.deleteCharAt(builder.length()-1);
         return builder.toString();
+    }
+
+    /**
+     * Find the closest enemy entity within aimbot range.
+     * Returns null if no enemy is found.
+     */
+    private GameEntity findClosestEnemy() {
+        float maxAimbotRange = 50f;  // Maximum range for aimbot
+        GameEntity closest = null;
+        float closestDist = maxAimbotRange * maxAimbotRange;
+
+        for (GameEntity entity : player.world.octree.entities) {
+            // Skip the player
+            if (entity == player) continue;
+
+            // Skip dead entities
+            if (entity.health <= 0) continue;
+
+            // Calculate distance squared (faster than sqrt)
+            float dx = entity.hitBox.position.x - player.hitBox.position.x;
+            float dy = entity.hitBox.position.y - player.hitBox.position.y;
+            float dz = entity.hitBox.position.z - player.hitBox.position.z;
+            float distSq = dx * dx + dy * dy + dz * dz;
+
+            if (distSq < closestDist) {
+                closestDist = distSq;
+                closest = entity;
+            }
+        }
+
+        return closest;
     }
 }
