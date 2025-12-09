@@ -13,6 +13,7 @@ import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
@@ -20,10 +21,10 @@ import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.TimeUtils;
 
 import io.github.necrashter.natural_revenge.Main;
+import io.github.necrashter.natural_revenge.world.GameWorld;
 
 /**
  * Floating mod menu UI with a draggable button and toggleable menu panel.
@@ -33,10 +34,12 @@ public class ModMenuUI {
     private final Stage stage;
     private final Skin skin;
     private final ModConfig config;
+    private final GameWorld world;
 
     private Image floatingButton;
     private Window menuWindow;
     private boolean menuVisible = false;
+    private boolean wasGamePaused = false;
 
     // Textures for the floating button
     private Texture buttonTexture;
@@ -46,20 +49,20 @@ public class ModMenuUI {
     private float buttonStartX, buttonStartY;
     private long touchStartTime;
     private boolean isDragging = false;
-    private static final float DRAG_THRESHOLD = 10f;  // pixels before considered dragging
-    private static final long TAP_TIME_THRESHOLD = 300; // ms max for tap
+    private static final float DRAG_THRESHOLD = 10f;
+    private static final long TAP_TIME_THRESHOLD = 300;
 
-    public ModMenuUI(Stage stage) {
+    public ModMenuUI(Stage stage, GameWorld world) {
         this.stage = stage;
         this.skin = Main.skin;
         this.config = ModConfig.getInstance();
+        this.world = world;
 
         createFloatingButton();
         createMenuWindow();
     }
 
     private void createFloatingButton() {
-        // Create a simple colored button texture
         Pixmap pixmap = new Pixmap(80, 80, Pixmap.Format.RGBA8888);
 
         // Draw outer circle (border)
@@ -72,34 +75,30 @@ public class ModMenuUI {
 
         // Draw "M" letter for Mod
         pixmap.setColor(Color.WHITE);
-        // Simple M shape - thicker lines for visibility
-        pixmap.fillRectangle(18, 20, 6, 40);  // Left vertical
-        pixmap.fillRectangle(56, 20, 6, 40);  // Right vertical
-        pixmap.fillRectangle(24, 20, 8, 6);   // Left top diagonal
-        pixmap.fillRectangle(48, 20, 8, 6);   // Right top diagonal
-        pixmap.fillRectangle(32, 26, 16, 6);  // Middle
+        pixmap.fillRectangle(18, 20, 6, 40);
+        pixmap.fillRectangle(56, 20, 6, 40);
+        pixmap.fillRectangle(24, 20, 8, 6);
+        pixmap.fillRectangle(48, 20, 8, 6);
+        pixmap.fillRectangle(32, 26, 16, 6);
 
         buttonTexture = new Texture(pixmap);
         pixmap.dispose();
 
-        // Create floating button as Image (better touch handling than Table)
         floatingButton = new Image(new TextureRegionDrawable(new TextureRegion(buttonTexture)));
         floatingButton.setSize(80, 80);
         floatingButton.setPosition(20, Gdx.graphics.getHeight() / 2f);
         floatingButton.setTouchable(Touchable.enabled);
 
-        // Combined listener for both drag AND tap detection
         floatingButton.addListener(new InputListener() {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-                // Store starting position and time
                 touchStartX = x;
                 touchStartY = y;
                 buttonStartX = floatingButton.getX();
                 buttonStartY = floatingButton.getY();
                 touchStartTime = TimeUtils.millis();
                 isDragging = false;
-                return true; // Must return true to receive touchDragged and touchUp
+                return true;
             }
 
             @Override
@@ -107,17 +106,14 @@ public class ModMenuUI {
                 float deltaX = x - touchStartX;
                 float deltaY = y - touchStartY;
 
-                // Check if we've moved enough to be considered dragging
                 if (Math.abs(deltaX) > DRAG_THRESHOLD || Math.abs(deltaY) > DRAG_THRESHOLD) {
                     isDragging = true;
                 }
 
                 if (isDragging) {
-                    // Move the button
                     float newX = buttonStartX + deltaX;
                     float newY = buttonStartY + deltaY;
 
-                    // Clamp to screen bounds
                     newX = Math.max(0, Math.min(newX, stage.getWidth() - floatingButton.getWidth()));
                     newY = Math.max(0, Math.min(newY, stage.getHeight() - floatingButton.getHeight()));
 
@@ -133,7 +129,6 @@ public class ModMenuUI {
             public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
                 long touchDuration = TimeUtils.millis() - touchStartTime;
 
-                // If it wasn't a drag and was quick enough, it's a tap - toggle menu
                 if (!isDragging && touchDuration < TAP_TIME_THRESHOLD) {
                     toggleMenu();
                 }
@@ -156,62 +151,46 @@ public class ModMenuUI {
 
     private void createMenuWindow() {
         menuWindow = new Window("Mod Menu", skin);
-        menuWindow.setSize(320, 480);
-        menuWindow.setPosition(120, Gdx.graphics.getHeight() / 2f - 240);
+        menuWindow.setSize(320, 520);
+        menuWindow.setPosition(120, Gdx.graphics.getHeight() / 2f - 260);
         menuWindow.setMovable(true);
         menuWindow.setResizable(false);
         menuWindow.setKeepWithinStage(true);
 
         Table content = new Table();
-        content.pad(15);
-        content.defaults().left().padBottom(12);
+        content.pad(10);
+        content.defaults().left().padBottom(8);
 
         // Title
         Label titleLabel = new Label("-- CHEATS --", skin);
         titleLabel.setColor(Color.YELLOW);
-        content.add(titleLabel).center().colspan(1).padBottom(20).row();
+        content.add(titleLabel).center().colspan(1).padBottom(15).row();
 
-        // Bunnyhop toggle
-        content.add(createToggle("Bunnyhop", config.bunnyhop, new ChangeListener() {
+        // God Mode
+        content.add(createToggle("God Mode", config.godMode, new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                config.bunnyhop = ((CheckBox) actor).isChecked();
+                config.godMode = ((CheckBox) actor).isChecked();
             }
         })).row();
 
-        // AirStrafe toggle
-        content.add(createToggle("AirStrafe", config.airStrafe, new ChangeListener() {
+        // Silent Aimbot
+        content.add(createToggle("Silent Aimbot", config.silentAimbot, new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                config.airStrafe = ((CheckBox) actor).isChecked();
+                config.silentAimbot = ((CheckBox) actor).isChecked();
             }
         })).row();
 
-        // Third Person toggle
-        content.add(createToggle("Third Person", config.thirdPerson, new ChangeListener() {
+        // ESP / Wallhack
+        content.add(createToggle("Enemy ESP", config.enemyESP, new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                config.thirdPerson = ((CheckBox) actor).isChecked();
+                config.enemyESP = ((CheckBox) actor).isChecked();
             }
         })).row();
 
-        // Rapid Fire toggle
-        content.add(createToggle("Rapid Fire", config.rapidFire, new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                config.rapidFire = ((CheckBox) actor).isChecked();
-            }
-        })).row();
-
-        // Infinite Ammo toggle
-        content.add(createToggle("Infinite Ammo", config.infiniteAmmo, new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                config.infiniteAmmo = ((CheckBox) actor).isChecked();
-            }
-        })).row();
-
-        // One Hit Kill toggle
+        // One Hit Kill
         content.add(createToggle("One Hit Kill", config.oneHitKill, new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -219,11 +198,51 @@ public class ModMenuUI {
             }
         })).row();
 
-        // Silent Aimbot toggle
-        content.add(createToggle("Silent Aimbot", config.silentAimbot, new ChangeListener() {
+        // Infinite Ammo
+        content.add(createToggle("Infinite Ammo", config.infiniteAmmo, new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                config.silentAimbot = ((CheckBox) actor).isChecked();
+                config.infiniteAmmo = ((CheckBox) actor).isChecked();
+            }
+        })).row();
+
+        // Rapid Fire
+        content.add(createToggle("Rapid Fire", config.rapidFire, new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                config.rapidFire = ((CheckBox) actor).isChecked();
+            }
+        })).row();
+
+        // No Recoil
+        content.add(createToggle("No Recoil", config.noRecoil, new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                config.noRecoil = ((CheckBox) actor).isChecked();
+            }
+        })).row();
+
+        // Bunnyhop
+        content.add(createToggle("Bunnyhop", config.bunnyhop, new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                config.bunnyhop = ((CheckBox) actor).isChecked();
+            }
+        })).row();
+
+        // AirStrafe
+        content.add(createToggle("AirStrafe", config.airStrafe, new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                config.airStrafe = ((CheckBox) actor).isChecked();
+            }
+        })).row();
+
+        // Third Person
+        content.add(createToggle("Third Person", config.thirdPerson, new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                config.thirdPerson = ((CheckBox) actor).isChecked();
             }
         })).row();
 
@@ -238,7 +257,7 @@ public class ModMenuUI {
                 hideMenu();
             }
         });
-        content.add(closeButton).center().padTop(15).width(120).height(50).row();
+        content.add(closeButton).center().padTop(10).width(120).height(45).row();
 
         menuWindow.add(content).expand().fill();
         menuWindow.setVisible(false);
@@ -267,11 +286,14 @@ public class ModMenuUI {
         menuWindow.setVisible(true);
         menuWindow.toFront();
 
+        // Pause game when menu opens
+        wasGamePaused = world.paused;
+        world.paused = true;
+
         // Position menu next to floating button
         float menuX = floatingButton.getX() + floatingButton.getWidth() + 15;
         float menuY = floatingButton.getY() + floatingButton.getHeight() / 2 - menuWindow.getHeight() / 2;
 
-        // Clamp to screen
         if (menuX + menuWindow.getWidth() > stage.getWidth()) {
             menuX = floatingButton.getX() - menuWindow.getWidth() - 15;
         }
@@ -284,15 +306,17 @@ public class ModMenuUI {
     public void hideMenu() {
         menuVisible = false;
         menuWindow.setVisible(false);
+
+        // Restore game pause state
+        if (!wasGamePaused) {
+            world.paused = false;
+        }
     }
 
     public boolean isMenuVisible() {
         return menuVisible;
     }
 
-    /**
-     * Call this to bring the mod button to the front (useful after screen resize)
-     */
     public void toFront() {
         floatingButton.toFront();
         if (menuVisible) {
@@ -306,11 +330,7 @@ public class ModMenuUI {
         }
     }
 
-    /**
-     * Update floating button position after screen resize
-     */
     public void resize(int width, int height) {
-        // Clamp button position to new screen bounds
         float clampedX = Math.min(floatingButton.getX(), width - floatingButton.getWidth());
         float clampedY = Math.min(floatingButton.getY(), height - floatingButton.getHeight());
         floatingButton.setPosition(Math.max(0, clampedX), Math.max(0, clampedY));

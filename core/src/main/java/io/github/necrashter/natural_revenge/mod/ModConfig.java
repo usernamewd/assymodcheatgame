@@ -15,6 +15,9 @@ public class ModConfig {
     public boolean infiniteAmmo = false;
     public boolean oneHitKill = false;
     public boolean silentAimbot = false;
+    public boolean godMode = false;
+    public boolean enemyESP = false;
+    public boolean noRecoil = false;
 
     // Third person camera settings
     public float thirdPersonDistance = 5.0f;
@@ -49,5 +52,8 @@ public class ModConfig {
         infiniteAmmo = false;
         oneHitKill = false;
         silentAimbot = false;
+        godMode = false;
+        enemyESP = false;
+        noRecoil = false;
     }
 }

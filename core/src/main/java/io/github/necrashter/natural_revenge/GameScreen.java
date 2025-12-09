@@ -34,6 +34,7 @@ import io.github.necrashter.natural_revenge.world.levels.ScriptedEvent;
 import io.github.necrashter.natural_revenge.world.player.PlayerWeapon;
 import io.github.necrashter.natural_revenge.world.player.Firearm;
 import io.github.necrashter.natural_revenge.mod.ModMenuUI;
+import io.github.necrashter.natural_revenge.mod.ESPRenderer;
 
 public class GameScreen implements Screen {
     public static final float CROSSHAIR_SIZE = 48f;
@@ -65,6 +66,7 @@ public class GameScreen implements Screen {
 
     // Mod Menu
     private ModMenuUI modMenuUI;
+    private ESPRenderer espRenderer;
 
     public GameScreen(final Main game, final GameWorld world) {
         this.game = game;
@@ -323,7 +325,8 @@ public class GameScreen implements Screen {
         setPaused(false);
 
         // Initialize Mod Menu
-        modMenuUI = new ModMenuUI(stage);
+        modMenuUI = new ModMenuUI(stage, world);
+        espRenderer = new ESPRenderer();
 
         world.addedToScreen();
     }
@@ -437,6 +440,9 @@ public class GameScreen implements Screen {
 
         worldRenderer.render();
 
+        // Render ESP (wallhack) overlays
+        espRenderer.render(world, world.cam);
+
         stage.getViewport().apply();
         stage.draw();
 
@@ -530,6 +536,9 @@ public class GameScreen implements Screen {
         stage.dispose();
         if (modMenuUI != null) {
             modMenuUI.dispose();
+        }
+        if (espRenderer != null) {
+            espRenderer.dispose();
         }
     }
 

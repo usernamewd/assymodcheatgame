@@ -432,6 +432,10 @@ public class Player extends GameEntity {
 
     @Override
     public boolean takeDamage(float amount, DamageAgent agent, DamageSource source) {
+        // God Mode: Ignore all damage
+        if (ModConfig.get().godMode) {
+            return false;
+        }
         world.screen.playerHurt();
         return super.takeDamage(amount, agent, source);
     }

@@ -180,8 +180,8 @@ public class Firearm extends PlayerWeapon {
             }
 
             if (closestEnemy != null && mod.silentAimbot) {
-                // Aimbot: Direct hit on closest enemy
-                player.world.decalPool.addBulletTrace(decal.getPosition(), closestEnemy.hitBox.position);
+                // Aimbot: Direct hit on closest enemy - use camera position as bullet origin
+                player.world.decalPool.addBulletTrace(player.camera.position, closestEnemy.hitBox.position);
                 closestEnemy.takeDamage(effectiveDamage, Damageable.DamageAgent.Player, Damageable.DamageSource.Firearm);
                 totalBulletsHit++;
                 totalDamage += effectiveDamage;
@@ -202,13 +202,15 @@ public class Firearm extends PlayerWeapon {
             }
         }
         totalBulletsShot += bulletsPerShot;
-        // Knockback
-        float horizontalLength = knockForward;
-        player.hitBox.velocity.add(
-            player.camera.direction.x * horizontalLength,
-            player.camera.direction.y * horizontalLength,
-            player.camera.direction.z * horizontalLength);
-        player.pitchMod += knockback;
+        // Knockback - skip if no recoil is enabled
+        if (!mod.noRecoil) {
+            float horizontalLength = knockForward;
+            player.hitBox.velocity.add(
+                player.camera.direction.x * horizontalLength,
+                player.camera.direction.y * horizontalLength,
+                player.camera.direction.z * horizontalLength);
+            player.pitchMod += knockback;
+        }
         player.world.statistics.update(this);
     }
 
