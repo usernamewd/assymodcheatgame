@@ -48,8 +48,12 @@ public class Firearm extends PlayerWeapon {
 
     public static class Template {
         public final ModelInstance model;
+        /**
+         * Used for pickup objects.
+         */
         public final Shape shape;
         public final Vector3 muzzlePoint;
+
         public final Sound shootSound;
         public final Sound reloadSound;
 
@@ -80,6 +84,9 @@ public class Firearm extends PlayerWeapon {
         }
     }
 
+    /**
+     * Reset some variables on equip.
+     */
     public void onEquip() {
         aimSightRatio = 0f;
     }
@@ -91,10 +98,11 @@ public class Firearm extends PlayerWeapon {
     public float noAutoTimer = 0f;
     public int bulletsPerShot = 1;
     public float spread = 0.02f;
-
     @Override
     public void update(float delta) {
         ModConfig mod = ModConfig.get();
+
+        // Apply rapid fire multiplier to delta for faster fire rate
         float effectiveDelta = mod.rapidFire ? delta * mod.rapidFireMultiplier : delta;
 
         if (state == State.Ready) {
@@ -111,6 +119,7 @@ public class Firearm extends PlayerWeapon {
                 state = State.Ready;
             }
         } else if (state == State.Reloading) {
+            // Rapid fire also speeds up reloading
             progress += effectiveDelta * reloadSpeed;
             if (progress > 1.0f) {
                 progress = 0.0f;
@@ -125,6 +134,7 @@ public class Firearm extends PlayerWeapon {
             }
             if (progress > 1.0f) {
                 noSoundYet = true;
+                // Infinite ammo: don't decrease ammo count
                 int newAmmo = mod.infiniteAmmo ? ammoInClip : --ammoInClip;
                 if (newAmmo > 0) {
                     progress = 0.0f;
@@ -158,6 +168,7 @@ public class Firearm extends PlayerWeapon {
         nextRoll = MathUtils.random(-recoveryRoll, recoveryRoll);
 
         ModConfig mod = ModConfig.get();
+        // One-hit kill: use massive damage value
         float effectiveDamage = mod.oneHitKill ? 999999f : damage;
 
         for (int i = 0; i < bulletsPerShot; ++i) {
@@ -175,6 +186,7 @@ public class Firearm extends PlayerWeapon {
             }
         }
         totalBulletsShot += bulletsPerShot;
+        // Knockback
         float horizontalLength = knockForward;
         player.hitBox.velocity.add(
             player.camera.direction.x * horizontalLength,
@@ -257,7 +269,7 @@ public class Firearm extends PlayerWeapon {
 
     public void render(GameWorld world) {
         super.render(world);
-        if (state == State.Firing) {
+        if (state == State.Firing) {// && noSoundYet) {
             world.decalBatch.add(decal);
         }
     }
@@ -271,6 +283,10 @@ public class Firearm extends PlayerWeapon {
         }
     }
 
+    /**
+     * Compute the overall DPS emptying one magazine, assuming all bullets hit.
+     * @return DPS
+     */
     public float computeDPS() {
         float overallDamage = damage * bulletsPerShot * maxAmmoInClip;
         float overallTime = (maxAmmoInClip/recoverySpeed) + (noAutoWaitTime * (MathUtils.ceil(maxAmmoInClip/(float)burstCount) - 1));

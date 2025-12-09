@@ -148,11 +148,30 @@ public class Player extends GameEntity {
         final float deltaY = (Main.invertMouseY ? (screenY - lastY) : (lastY - screenY)) / Gdx.graphics.getHeight();
         lastX = screenX;
         lastY = screenY;
+//        if (world.paused || inputAdapter.disabled) return;
         if (world.paused) return;
+        // Calculate the effective rotation speed by multiplying the base rotateAngle
+        // with the user's chosen sensitivity from Main.
         float effectiveRotateSpeed = rotateAngle * Main.mouseSensitivity;
+
+        // Apply to pitch
         pitch = MathUtils.clamp(pitch + deltaY * effectiveRotateSpeed, -90f, 90f);
+
+        // Apply to yaw (horizontal rotation of the 'forward' vector)
+        // Note the negative sign for deltaX if you want mouse right to turn right.
+        // If it feels inverted horizontally, remove the '-' from '-effectiveRotateSpeed'.
         forward.rotate(Vector3.Y, deltaX * -effectiveRotateSpeed);
     }
+
+    // Keep rotateAngle as your base sensitivity factor
+    //public float rotateAngle = 360f; // You can tweak this base value if needed
+    // For example, if 360f * 0.1f (min sensitivity) is too fast,
+    // you might reduce rotateAngle to something like 180f or 200f.
+
+//    old
+//        pitch = MathUtils.clamp(pitch + deltaY * rotateAngle, -90f, 90f);
+//        forward.rotate(Vector3.Y, deltaX * -rotateAngle);
+//    }
 
     private boolean mouseReset;
     public void resetMouse() {
@@ -195,6 +214,9 @@ public class Player extends GameEntity {
         mouseReset = true;
         maxHealth *= world.easiness;
         health *= world.easiness;
+        // Quick cheat for debugging
+        // maxHealth = Float.POSITIVE_INFINITY;
+        // health = Float.POSITIVE_INFINITY;
 
         world.statistics.recorders.add(new Statistics.FloatRecorder("Player Health", Color.RED) {
             @Override
@@ -232,12 +254,16 @@ public class Player extends GameEntity {
     public void jump() {
         ModConfig mod = ModConfig.get();
         if (mod.bunnyhop) {
+            // Bunnyhop: Can jump anytime and get speed boost
             float velocity = jumpVelocity;
             if (hitBox.onGround || hitBox.onObject) {
+                // Ground jump with boost
                 velocity *= mod.bunnyhopBoost;
             }
+            // Allow air jumping with bunnyhop
             hitBox.velocity.y = Math.max(hitBox.velocity.y, velocity);
         } else {
+            // Normal jump
             jump(jumpVelocity);
         }
     }
@@ -259,10 +285,13 @@ public class Player extends GameEntity {
         ModConfig mod = ModConfig.get();
         float currentSpeed = activeWeapon != null ? (movementSpeed * activeWeapon.speedMod) : (movementSpeed*1.75f);
 
+        // AirStrafe: Allow full air control and speed boost while in air
         if (mod.airStrafe && !hitBox.onGround && !hitBox.onObject) {
+            // In air with airstrafe: apply movement directly to velocity for better air control
             float airStrafeSpeed = currentSpeed * 1.5f;
             hitBox.velocity.x += movement.x * airStrafeSpeed * delta * 5f;
             hitBox.velocity.z += movement.z * airStrafeSpeed * delta * 5f;
+            // Dampen ground movement component since we're using velocity
             movement.scl(0.3f);
         } else {
             movement.scl(currentSpeed);
@@ -273,15 +302,18 @@ public class Player extends GameEntity {
         camera.position.set(hitBox.position);
         camera.position.add(0, CAMERA_HEIGHT, 0);
 
+        // Third Person camera offset
         if (mod.thirdPerson) {
+            // Move camera back behind the player
             camera.position.mulAdd(camera.direction, -mod.thirdPersonDistance);
-            camera.position.add(0, 1.5f, 0);
+            camera.position.add(0, 1.5f, 0); // Raise camera slightly
         }
 
         camera.update();
 
         if (activeWeapon != null) {
             activeWeapon.update(delta);
+            // activeWeapon may become null in update
             if (activeWeapon != null) activeWeapon.setView(camera);
         } else {
             noWeaponTimer -= delta;
@@ -319,6 +351,7 @@ public class Player extends GameEntity {
             equipWeapon(activeWeaponIndex);
         } else {
             activeWeapon = null;
+            // Reset camera FOV
             camera.fieldOfView = Main.fov;
             noWeaponTimer = NO_WEAPON_TIMEOUT;
         }
@@ -379,6 +412,7 @@ public class Player extends GameEntity {
                 if (i == activeWeaponIndex) {
                     stringBuilder.append('[').append(i+1).append("] ");
                 } else {
+
                     stringBuilder.append(' ').append(i+1).append("  ");
                 }
             } else {

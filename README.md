@@ -1,84 +1,62 @@
-# Frogue Mod - Cheat Menu Edition
+# Frogue
 
-A modded version of [Frogue](https://github.com/necrashter/frogue.git), an open-source FPS game built with libGDX.
+An open-source FPS game made for [libGDX Jam 33](https://itch.io/jam/libgdx-jam-33/entries).
 
-## Features
+Play the game [here on itch.io](https://necrashter.itch.io/frogue).
 
-### Mod Menu
-A floating, draggable mod menu button appears when the game starts. Tap it to toggle cheats:
+## Platforms
 
-| Cheat | Effect |
-|-------|--------|
-| **Bunnyhop** | Jump anytime (even mid-air), 1.3x jump velocity boost |
-| **AirStrafe** | Full air control, build speed while airborne |
-| **Third Person** | Camera moves behind player for 3rd person view |
-| **Rapid Fire** | 5x faster fire rate and reload for all weapons |
-| **Infinite Ammo** | Never run out of ammo in current clip |
-| **One Hit Kill** | All enemies die in one shot |
+- `core`: Main module with the application logic shared by all platforms.
+- `lwjgl3`: Primary desktop platform using LWJGL3; was called 'desktop' in older docs.
+- `android`: Android mobile platform. Needs Android SDK.
+- `html`: Web platform using GWT and WebGL. Supports only Java projects.
 
-## Setup Instructions
+## Gradle
 
-This repository contains the mod files. To build the complete game, you need to merge with the original repository:
+This project uses [Gradle](https://gradle.org/) to manage dependencies.
+The Gradle wrapper was included, so you can run Gradle tasks using `gradlew.bat` or `./gradlew` commands.
+Useful Gradle tasks and flags:
 
-### Option 1: Quick Setup (Recommended)
-```bash
-# Clone the original game
-git clone https://github.com/necrashter/frogue.git frogue-mod
-cd frogue-mod
+- `--continue`: when using this flag, errors will not stop the tasks from running.
+- `--daemon`: thanks to this flag, Gradle daemon will be used to run chosen tasks.
+- `--offline`: when using this flag, cached dependency archives will be used.
+- `--refresh-dependencies`: this flag forces validation of all dependencies. Useful for snapshot versions.
+- `android:lint`: performs Android project validation.
+- `build`: builds sources and archives of every project.
+- `cleanEclipse`: removes Eclipse project data.
+- `cleanIdea`: removes IntelliJ project data.
+- `clean`: removes `build` folders, which store compiled classes and built archives.
+- `eclipse`: generates Eclipse project data.
+- `html:dist`: compiles GWT sources. The compiled application can be found at `html/build/dist`: you can use any HTTP server to deploy it.
+- `html:superDev`: compiles GWT sources and runs the application in SuperDev mode. It will be available at [localhost:8080/html](http://localhost:8080/html). Use only during development.
+- `idea`: generates IntelliJ project data.
+- `lwjgl3:jar`: builds application's runnable jar, which can be found at `lwjgl3/build/libs`.
+- `lwjgl3:run`: starts the application.
+- `test`: runs unit tests (if any).
 
-# Add this repo as a remote and merge
-git remote add mod https://github.com/usernamewd/assymodcheatgame.git
-git fetch mod
-git merge mod/main --allow-unrelated-histories -m "Merge mod files"
+Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
+For example, `core:clean` removes `build` folder only from the `core` project.
 
-# Build the Android APK
-./gradlew android:assembleDebug
-```
+# License
 
-### Option 2: Manual Setup
-1. Clone the original: `git clone https://github.com/necrashter/frogue.git`
-2. Copy these mod files into the cloned repo:
-   - `core/src/main/java/io/github/necrashter/natural_revenge/mod/` (new folder)
-   - Replace `Player.java`, `Firearm.java`, `GameScreen.java`
-   - Add `.github/workflows/build-android.yml`
-3. Build: `./gradlew android:assembleDebug`
+The code is released under the MIT license.
 
-## Building
+2D assets:
+- UI Theme by [***Raymond "Raeleus" Buckley***](https://ray3k.wordpress.com/software/skin-composer-for-libgdx/) with modifications.
 
-### Prerequisites
-- JDK 17+
-- Android SDK (for Android build)
+3D models:
+- https://opengameart.org/content/spruce-deforestation-models
+- https://opengameart.org/content/frog-guy
+- https://opengameart.org/content/low-poly-m4a1
+- Any other models are by me for this project.
+- AI-assisted texture painting
 
-### Build Commands
-```bash
-# Debug APK
-./gradlew android:assembleDebug
+Sound effects:
+- [Zombie sound](https://freesound.org/people/ohheyvoid/sounds/540818/)
+- [Frog sounds](https://freesound.org/people/OneTwo_BER/sounds/474193/)
+- ["Pew" sound](https://freesound.org/people/0ne_one111yt/sounds/478215/)
+- ["Reloading" sound](https://freesound.org/people/TyrantTim/sounds/800861/)
+- Other CC0 sounds from freesound.org
 
-# Release APK  
-./gradlew android:assembleRelease
-```
-
-The APK will be at `android/build/outputs/apk/debug/android-debug.apk`
-
-### GitHub Actions
-This repo includes a workflow that automatically builds the Android APK on push. Check the Actions tab for artifacts.
-
-## Modified Files
-
-| File | Changes |
-|------|---------|
-| `mod/ModConfig.java` | NEW - Singleton holding cheat toggle states |
-| `mod/ModMenuUI.java` | NEW - Floating draggable UI with checkboxes |
-| `Player.java` | Added bunnyhop, airstrafe, third person camera |
-| `Firearm.java` | Added rapid fire, infinite ammo, one-hit kill |
-| `GameScreen.java` | Integrated ModMenuUI |
-
-## Credits
-
-- Original game: [Frogue by necrashter](https://github.com/necrashter/frogue.git)
-- Mod by: Matrix Agent
-- License: MIT
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details.
+Music:
+- Made by me, licensed under CC-BY-NC-SA 4.0.
